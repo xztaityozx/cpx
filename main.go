@@ -20,7 +20,7 @@
 
 package main
 
-import "github.com/xztaityozx/go-mvx/cmd"
+import "github.com/xztaityozx/cpx/cmd"
 
 func main() {
 	cmd.Execute()

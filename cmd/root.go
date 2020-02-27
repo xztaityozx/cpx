@@ -23,22 +23,29 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/xztaityozx/cpx/cp"
 )
 
 var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "mvx",
-  Short: "mvx: wrapper for mv command",
-  Long: `mvx wrapper for mv command with Fuzzy Finder`,
+	Use:     "cpx",
+	Short:   "cpx: wrapper for cp command",
+	Long:    `cpx is wrapper for cp command with Fuzzy Finder`,
+	Version: "0.1.0",
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		src, dst := args[0], args[1]
+		c := cp.New(src, dst)
+
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -52,15 +59,15 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/cpx/config.json)")
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/go-mvx/.go-mvx.json)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().Bool("force", false, "if an existing destination file cannot be opened, remove it and try again")
+	rootCmd.Flags().BoolP("src-finder", "f", false, "use fuzzy-finder to select SOURCE files or directories")
+	rootCmd.Flags().BoolP("dst-finder", "F", false, "use fuzzy-finder to select DESTINATION files or directories")
+	rootCmd.Flags().BoolP("recursive", "r", false, "copy directories recursively")
+	rootCmd.Flags().UintP("parallel", "P", 1, "number of parallel size")
+	rootCmd.Flags().BoolP("progress", "p", false, "show progress bar")
+	rootCmd.Flags().SortFlags = false
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -76,9 +83,8 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".go-mvx" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".go-mvx")
+		viper.AddConfigPath(filepath.Join(home, "cpx"))
+		viper.SetConfigName("config")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
