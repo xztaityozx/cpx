@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vbauerster/mpb"
 	"github.com/xztaityozx/cpx/cp"
 	"golang.org/x/xerrors"
 )
@@ -15,6 +16,7 @@ type Copyer interface {
 	ExistsDst() bool
 	Src() string
 	Dst() string
+	WithProgressBar(*mpb.Progress) error
 }
 
 func GenerateLocalCopyers(srcList, dstList []string, recursive bool) ([]Copyer, error) {

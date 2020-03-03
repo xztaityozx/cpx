@@ -21,17 +21,23 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/xztaityozx/cpx/cp"
+	"github.com/vbauerster/mpb"
+	"github.com/xztaityozx/cpx/config"
+	"github.com/xztaityozx/cpx/factory"
 )
 
 var cfgFile string
+var cfg config.Config
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -39,11 +45,63 @@ var rootCmd = &cobra.Command{
 	Short:   "cpx: wrapper for cp command",
 	Long:    `cpx is wrapper for cp command with Fuzzy Finder`,
 	Version: "0.1.0",
+	Args:    cobra.MinimumNArgs(2),
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 		src, dst := args[0], args[1]
-		c := cp.New(src, dst)
+
+		force, _ := cmd.Flags().GetBool("force")
+		srcFf, _ := cmd.Flags().GetBool("src-finder")
+		dstFf, _ := cmd.Flags().GetBool("dst-finder")
+		recursive, _ := cmd.Flags().GetBool("recursive")
+		parallel, _ := cmd.Flags().GetUint("parallel")
+		progress, _ := cmd.Flags().GetBool("progress")
+
+		buildPath := func(p string, b bool) []string {
+			if b {
+				a, e := cfg.FuzzyFinder.GetPathes(p)
+				if e != nil {
+					logrus.Fatal(e)
+				}
+				return a
+			}
+			return []string{p}
+		}
+
+		res, err := factory.GenerateLocalCopyers(buildPath(src, srcFf), buildPath(dst, dstFf), recursive)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+
+		if len(res) == 0 {
+			logrus.Warn("no copy task")
+		}
+
+		var wg sync.WaitGroup
+		wg.Add(len(res))
+		ch := make(chan struct{}, parallel)
+		defer close(ch)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		act := func() func() {
+			if progress {
+				pb := mpb.New(mpb.WithWaitGroup(&wg), mpb.WithContext(ctx))
+				return func() {
+
+				}
+			}
+		}
+
+		for _, v := range res {
+			go func() {
+				ch <- struct{}{}
+				act()
+				<-ch
+			}()
+		}
 
 	},
 }
@@ -92,5 +150,9 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+
+	if err := viper.Unmarshal(&cfg); err != nil {
+		logrus.Fatal(err)
 	}
 }
