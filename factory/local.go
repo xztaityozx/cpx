@@ -2,86 +2,80 @@ package factory
 
 import (
 	"io/ioutil"
+	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"github.com/xztaityozx/cpx/cp"
 	"golang.org/x/xerrors"
 )
 
-func GenerateLocalCopyers(srcList, dstList []string, recursive bool) ([]cp.Copy, error) {
-	var rt []cp.Copy
-
-	for _, src := range srcList {
-		for _, dst := range dstList {
-			res, err := dfsDir(src, dst, recursive)
-			if err != nil {
-				return nil, err
-			}
-			rt = append(rt, res...)
-		}
-	}
-
-	return rt, nil
+type Factory struct {
+	prompt func(string) bool
+	force  bool
 }
 
-func dfsDir(src, dst string, recursive bool) ([]cp.Copy, error) {
-	var rt []cp.Copy
+type Copies []cp.Copy
 
-	src, dst = filepath.Clean(src), filepath.Clean(dst)
+func New(prompt func(string) bool, force bool) Factory { return Factory{prompt: prompt, force: force} }
 
-	fi, err := os.Stat(src)
+func (f Factory) openLocal(src, dst string) (*cp.Source, *cp.Destination, error) {
+	s, err := cp.File(src)
 	if err != nil {
-		return nil, xerrors.Errorf("faild to stat source file/direcory(%s): error:%v", src, err)
+		return nil, nil, err
+	}
+	d, err := cp.Dst(dst, f.prompt, f.force)
+
+	return s, d, err
+}
+
+// NOT tested
+func (f Factory) HttpGet(url, dst string) (cp.Copy, error) {
+	src, err := cp.HttpGet(url)
+	if err != nil {
+		return cp.Copy{}, err
+	}
+	r, _ := http.NewRequest("GET", url, nil)
+	filename := path.Base(r.URL.Path)
+	dst = filepath.Join(dst, filename)
+	d, err := cp.Dst(dst, f.prompt, f.force)
+	if err != nil {
+		return cp.Copy{}, err
+	}
+	return cp.New(src, d), nil
+}
+
+func (f Factory) Directory(src, dst string, recursive bool) (rt *Copies, err error) {
+	src, dst = filepath.Clean(src), filepath.Clean(dst)
+	srcFi, err := os.Stat(src)
+	if err != nil {
+		return nil, err
+	}
+	if !srcFi.IsDir() {
+		return nil, xerrors.New("source is not directory")
 	}
 
-	{
-		// Dstが無い、もしくはディレクトリのときだけコピー対象にする
-		dfi, err := os.Stat(dst)
-		if err == nil && !dfi.IsDir() {
-			return nil, xerrors.Errorf("%s is not direcotry", dst)
+	dstFi, err := os.Stat(src)
+	if err != nil {
+		if err := os.MkdirAll(dst, srcFi.Mode().Perm()); err != nil {
+			return nil, err
 		}
+		dstFi, _ = os.Stat(dst)
 	}
 
-	// Sourceが普通のファイルならそのまま返す
-	if fi.Mode().IsRegular() {
-		s, err := cp.File(src)
-		if err != nil {
-			return nil, err
-		}
-		d, err := cp.Dst(filepath.Join(dst, fi.Name()), prompt, force)
-		if err != nil {
-			return nil, err
-		}
-		return []cp.Copy{cp.New(s, d)}, nil
+	if !dstFi.IsDir() {
+		return nil, xerrors.New("destination is not directory")
 	}
 
 	entries, err := ioutil.ReadDir(src)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to read source direcotry(%s): error:%v", src, err)
+		return nil, err
 	}
 
 	for _, entry := range entries {
-		//logrus.Info(entry.Name())
-		s := filepath.Join(src, entry.Name())
-		d := filepath.Join(dst, entry.Name())
+		s, d := filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name())
 
-		// ディレクトリを再帰的に見る
-		if entry.IsDir() && recursive {
-			res, err := dfsDir(s, d, recursive)
-			if err != nil {
-				return nil, err
-			}
-			rt = append(rt, res...)
-			// 普通のファイルならコピーの対象にする
-		} else if entry.Mode().IsRegular() {
-			rt = append(rt, cp.New(s, d))
-			// それ以外はSkip
-		} else {
-			logrus.Warn("skipping... ", src)
-		}
 	}
 
-	return rt, nil
 }

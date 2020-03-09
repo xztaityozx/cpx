@@ -35,7 +35,7 @@ func File(path string) (*Source, error) {
 }
 
 // Create Source struct from http.get
-func HttpsGet(url string) (*Source, error) {
+func HttpGet(url string) (*Source, error) {
 	res, err := http.Get(url)
 	return &Source{r: res.Body, size: res.ContentLength}, err
 }
