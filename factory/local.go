@@ -6,21 +6,12 @@ import (
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vbauerster/mpb"
 	"github.com/xztaityozx/cpx/cp"
 	"golang.org/x/xerrors"
 )
 
-type Copyer interface {
-	Copy() error
-	ExistsDst() bool
-	Src() string
-	Dst() string
-	WithProgressBar(*mpb.Progress) error
-}
-
-func GenerateLocalCopyers(srcList, dstList []string, recursive bool) ([]Copyer, error) {
-	var rt []Copyer
+func GenerateLocalCopyers(srcList, dstList []string, recursive bool) ([]cp.Copy, error) {
+	var rt []cp.Copy
 
 	for _, src := range srcList {
 		for _, dst := range dstList {
@@ -35,8 +26,8 @@ func GenerateLocalCopyers(srcList, dstList []string, recursive bool) ([]Copyer, 
 	return rt, nil
 }
 
-func dfsDir(src, dst string, recursive bool) ([]Copyer, error) {
-	var rt []Copyer
+func dfsDir(src, dst string, recursive bool) ([]cp.Copy, error) {
+	var rt []cp.Copy
 
 	src, dst = filepath.Clean(src), filepath.Clean(dst)
 
@@ -55,10 +46,15 @@ func dfsDir(src, dst string, recursive bool) ([]Copyer, error) {
 
 	// Sourceが普通のファイルならそのまま返す
 	if fi.Mode().IsRegular() {
-		return []Copyer{cp.New(
-			src,
-			filepath.Join(dst, fi.Name()),
-		)}, nil
+		s, err := cp.File(src)
+		if err != nil {
+			return nil, err
+		}
+		d, err := cp.Dst(filepath.Join(dst, fi.Name()), prompt, force)
+		if err != nil {
+			return nil, err
+		}
+		return []cp.Copy{cp.New(s, d)}, nil
 	}
 
 	entries, err := ioutil.ReadDir(src)

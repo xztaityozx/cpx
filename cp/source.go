@@ -40,7 +40,7 @@ func HttpsGet(url string) (*Source, error) {
 	return &Source{r: res.Body, size: res.ContentLength}, err
 }
 
-// enable ProgressBar
+// enable
 func (s *Source) WithProgressBar(parent *mpb.Progress) {
 	s.pb = func() *mpb.Bar {
 		p := parent.AddBar(s.size,
