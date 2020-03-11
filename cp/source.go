@@ -14,6 +14,7 @@ type Source struct {
 	r    io.ReadCloser
 	pb   func() *mpb.Bar
 	size int64
+	path string
 }
 
 func (s *Source) Read(p []byte) (n int, err error) {
@@ -31,13 +32,13 @@ func File(path string) (*Source, error) {
 		return nil, xerrors.Errorf("failed to open source file: %s\nerror-> %w", path, err)
 	}
 	fi, _ := fp.Stat()
-	return &Source{r: fp, size: fi.Size()}, nil
+	return &Source{r: fp, size: fi.Size(), path: path}, nil
 }
 
 // Create Source struct from http.get
 func HttpGet(url string) (*Source, error) {
 	res, err := http.Get(url)
-	return &Source{r: res.Body, size: res.ContentLength}, err
+	return &Source{r: res.Body, size: res.ContentLength, path: url}, err
 }
 
 // enable

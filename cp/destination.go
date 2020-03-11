@@ -22,7 +22,7 @@ func (d *Destination) Close() error {
 }
 
 // Create Destination struct
-func Dst(path string, prompt func(string) bool, force bool) (*Destination, error) {
+func Dst(path string, prompt func(string) bool) (*Destination, error) {
 	var rt Destination
 	rt.path = path
 
@@ -34,7 +34,7 @@ func Dst(path string, prompt func(string) bool, force bool) (*Destination, error
 			return nil, xerrors.Errorf("%s is not regular file", path)
 		}
 
-		if !force && !prompt(fmt.Sprintf("%s is already exists. overwrite it?", path)) {
+		if !prompt(fmt.Sprintf("%s is already exists. overwrite it?", path)) {
 			return nil, xerrors.Errorf("canceled by user")
 		}
 	}

@@ -19,7 +19,7 @@ func Test_Dst(t *testing.T) {
 
 	t.Run("regular file(not exist)", func(t *testing.T) {
 		rf := filepath.Join(tmp, "rf")
-		d, err := Dst(rf, yes, false)
+		d, err := Dst(rf, yes)
 		as.NotNil(d)
 		as.NoError(err)
 		as.FileExists(rf)
@@ -29,7 +29,7 @@ func Test_Dst(t *testing.T) {
 	t.Run("regular file", func(t *testing.T) {
 		rf := filepath.Join(tmp, "rf")
 		ioutil.WriteFile(rf, []byte("file"), 0644)
-		d, err := Dst(rf, yes, false)
+		d, err := Dst(rf, yes)
 		as.NotNil(d)
 		as.NoError(err)
 		as.FileExists(rf)
@@ -37,13 +37,13 @@ func Test_Dst(t *testing.T) {
 	})
 
 	t.Run("not regular file", func(t *testing.T) {
-		d, err := Dst(os.DevNull, yes, false)
+		d, err := Dst(os.DevNull, yes)
 		as.Nil(d)
 		as.Error(err)
 	})
 
 	t.Run("is directory", func(t *testing.T) {
-		d, err := Dst(tmp, yes, false)
+		d, err := Dst(tmp, yes)
 		as.Nil(d)
 		as.Error(err)
 	})
@@ -51,7 +51,7 @@ func Test_Dst(t *testing.T) {
 	t.Run("force", func(t *testing.T) {
 		rf := filepath.Join(tmp, "rf")
 		ioutil.WriteFile(rf, []byte("file"), 0644)
-		d, err := Dst(rf, yes, true)
+		d, err := Dst(rf, yes)
 		as.NotNil(d)
 		as.NoError(err)
 		as.FileExists(rf)
@@ -60,7 +60,7 @@ func Test_Dst(t *testing.T) {
 	t.Run("cancel", func(t *testing.T) {
 		rf := filepath.Join(tmp, "rf")
 		ioutil.WriteFile(rf, []byte("file"), 0644)
-		d, err := Dst(rf, no, false)
+		d, err := Dst(rf, no)
 		as.Nil(d)
 		as.Error(err)
 		os.Remove(rf)
