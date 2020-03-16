@@ -4,6 +4,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Copy struct {
@@ -24,48 +26,56 @@ func (cp Copy) Run() error {
 	return err
 }
 
-func Glob(sList, dList []string, recursive bool, prompt func(string) bool) ([]Copy, []string, error) {
-	var rt []Copy
-	var skip []string
-	for _, src := range sList {
-		for _, dst := range dList {
-			err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
+type FileEntry struct {
+	base string
+	path string
+	info os.FileInfo
+}
 
-				abs := filepath.Join(path)
-				if filepath.Dir(abs) != src && !recursive {
-					skip = append(skip, abs)
-					return nil
-				}
+type PromptFunc func(string) bool
 
-				// source is directory
-				if info.IsDir() {
-					return os.MkdirAll(filepath.Join(dst, path), info.Mode().Perm())
-				}
+func Glob(glob string, recursive bool) ([]FileEntry, error) {
+	var rt []FileEntry
 
-				// source file is regular file
-				if info.Mode().IsRegular() {
-					s, err := File(abs)
-					if err != nil {
-						return err
-					}
-					// overwrite confirming
-					d, err := Dst(filepath.Join(dst, path), prompt)
-					if err != nil {
-						return err
-					}
-					rt = append(rt, create(s, d))
-				}
-
-				skip = append(skip, abs)
-				return nil
-			})
-			if err != nil {
-				return nil, nil, err
-			}
-		}
+	expanded, err := filepath.Glob(filepath.Clean(glob))
+	if err != nil {
+		return nil, err
 	}
-	return rt, skip, nil
+
+	visited := map[string]bool{}
+
+	logrus.Info("-----------Start----------")
+
+	for _, item := range expanded {
+		logrus.Info("item: ", item)
+		if visited[item] {
+			logrus.Warn("continue...")
+			continue
+		}
+		logrus.Info("filepath.Walk, item: ", item)
+		err = filepath.Walk(item, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if visited[path] {
+				logrus.Warn("continue...(filepath.Walk)")
+				return nil
+			}
+			visited[item] = true
+
+			d, n := filepath.Split(path)
+			d = filepath.Clean(d)
+			logrus.Info("d: ", d, " n: ", n)
+			if d != item && !recursive {
+				logrus.Warn("skipping...")
+				return nil
+			}
+			logrus.Info("append to rt")
+			rt = append(rt, FileEntry{base: d, path: n, info: info})
+
+			return nil
+		})
+	}
+
+	return rt, nil
 }

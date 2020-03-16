@@ -33,47 +33,52 @@ func Test_Glob(t *testing.T) {
 		as.NoError(ioutil.WriteFile(y, []byte(fmt.Sprintf("this is test file%d(d2)", i)), 0644))
 	}
 
-	type pair struct {
-		s string
-		d string
-	}
-
-	dst1 := filepath.Join(tmp, "dst1")
-	//dst2 := filepath.Join(tmp, "dst2")
-
-	yes := func(s string) bool { return true }
-	//no := func(s string) bool { return false }
-
 	data := []struct {
-		glob   []string
-		dst    []string
-		expect []pair
-		skip   []string
+		glob   string
+		expect []string
 		r      bool
 		throw  bool
-		prompt func(s string) bool
 	}{
-		{glob: []string{d1}, dst: []string{dst1}, r: false, throw: false, expect: []pair{
-			{s: filepath.Join(d1, "f0"), d: filepath.Join(dst1, "f0")},
-			{s: filepath.Join(d1, "f1"), d: filepath.Join(dst1, "f1")},
-			{s: filepath.Join(d1, "f2"), d: filepath.Join(dst1, "f2")},
-		}, skip: []string{d2}, prompt: yes},
+		{glob: d1, r: false, throw: false, expect: []string{
+			filepath.Join(d1, "f0"),
+			filepath.Join(d1, "f1"),
+			filepath.Join(d1, "f2"),
+			d1,
+		}},
+		{glob: d1, r: true, throw: false, expect: []string{
+			filepath.Join(d1, "f0"),
+			filepath.Join(d1, "f1"),
+			filepath.Join(d1, "f2"),
+			filepath.Join(d2, "f0"),
+			filepath.Join(d2, "f1"),
+			filepath.Join(d2, "f2"),
+			d2, d1,
+		}},
+		{glob: d2, r: true, throw: false, expect: []string{
+			filepath.Join(d2, "f0"),
+			filepath.Join(d2, "f1"),
+			filepath.Join(d2, "f2"),
+			d2,
+		}},
+		{glob: filepath.Join(d1, "*"), r: false, throw: false, expect: []string{
+			filepath.Join(d1, "f0"),
+			filepath.Join(d1, "f1"),
+			filepath.Join(d1, "f2"),
+		}},
 	}
 
 	for _, v := range data {
-		res, sk, err := Glob(v.glob, v.dst, v.r, v.prompt)
+		res, err := Glob(v.glob, v.r)
 		if v.throw {
-			as.Nil(res)
-			as.Nil(sk)
-			as.Error(err)
+			as.Error(err, v.glob)
+			as.Nil(res, v.glob)
 		} else {
-			var pairs []pair
-			for _, c := range res {
-				pairs = append(pairs, pair{s: c.src.path, d: c.dst.path})
+			as.NoError(err, v.glob)
+			actual := []string{}
+			for _, fe := range res {
+				actual = append(actual, filepath.Join(fe.base, fe.path))
 			}
-
-			as.Equal(v.expect, pairs)
-			as.Equal(v.skip, sk)
+			as.ElementsMatch(v.expect, actual, "glob: %s, r: %v", v.glob, v.r)
 		}
 	}
 
