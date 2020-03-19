@@ -78,7 +78,7 @@ func Test_Glob(t *testing.T) {
 			for _, fe := range res {
 				actual = append(actual, filepath.Join(fe.base, fe.path))
 			}
-			as.ElementsMatch(v.expect, actual, "glob: %s, r: %v", v.glob, v.r)
+			as.ElementsMatch(v.expect, actual, "glob: %s, r: %v\nexpect: %v\nactual: %v", v.glob, v.r, v.expect, actual)
 		}
 	}
 
